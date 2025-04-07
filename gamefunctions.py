@@ -25,22 +25,68 @@ print_shop_menu
 purchase_item
 new_random_monster
 '''
-
+import json
 import random
 
 
 
-def purchase_item(item_stats, money, item_choice, inventory, quantity=1):
+def save(inventory, HP, Gold, Name):
+#saves the game
+    data = {
+        'inventory': inventory,
+        'hp': HP,
+        'gold': Gold,
+        'Name': Name
+    }
+    with open(f"{Name}.json", 'w') as file:
+        json.dump(data, file)
+
+
+def start_game():
+#Starts the game
+    NewOrSave = input('New game or load save? ("new" or "load")')
+    if NewOrSave == 'new':
+        inventory = {}
+        HP = 100
+        Gold = 300
+        Name = print_welcome()
+    elif NewOrSave == 'load':
+        Name = input('What is the name of the save?')
+        Name, inventory, HP, Gold = load_game(Name)
+    return Name, inventory, HP, Gold
+
+
+def load_game(Name):
+    # Loads a game if start game calls for load game, If loading fails it just starts a new cause it kept crashing without the "try"
+    file_name = f"{Name}.json"
+    try:
+        with open(file_name, 'r') as file:
+            content = file.read()
+            if not content:  # Check if file is empty
+                raise ValueError("Save file is empty.")
+            data = json.loads(content)
+            inventory = data.get('inventory', [])
+            hp = data.get('hp', 100)
+            gold = data.get('gold', 300)
+            return Name, inventory, hp, gold
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as e:
+        print(f"Error loading save file: {e}")
+        print("Starting a new game...")
+        Name = print_welcome()
+        return Name, [], 100, 300
+
+
+def purchase_item(item_stats, Gold, item_choice, inventory, quantity=1):
     if item_choice not in item_stats:
         print("Item not found.")
-        return money
+        return Gold
 
     item_price = item_stats[item_choice]['price']
     item_durability = item_stats[item_choice]['durability']
 
     total_cost = item_price * quantity
-    if money >= total_cost:
-        money -= total_cost
+    if Gold >= total_cost:
+        Gold -= total_cost
         if item_choice in inventory:
             inventory[item_choice]['quantity'] += quantity
         else:
@@ -48,16 +94,12 @@ def purchase_item(item_stats, money, item_choice, inventory, quantity=1):
                 'quantity': quantity,
                 'durability': item_durability
             }
-        print(f"You bought {quantity} {item_choice}(s).")
+        print("You bought {quantity} {item_choice}(s).")
     else:
         print("Not enough gold.")
-    return money
+    return Gold
 
 
-# --TO DO-- code for giving player purchased items and updating global money goes here
-
-    # I didn't know how to set up a function for returning without knowing what the 
-    # rest of the code would look like so I just printed for now     
 
 def new_random_monster():
     
@@ -69,21 +111,21 @@ def new_random_monster():
         'desc': 'A small clump of rotting biomatter clung together by the collective, dying will of its parts',
         'health': (1, 3),
         'power': (0, 2),
-        'money': (5, 10)
+        'Gold': (5, 10)
     },
     {
         'name': 'Zombie',
         'desc': 'Any dead creature with enough soul left to continue to move',
         'health': (20, 50),
         'power': (10, 20),
-        'money': (20, 60)
+        'Gold': (20, 60)
     },
     {
         'name': 'Greg',
         'desc': 'Greg is a wealthy passerby. Will you sacrifice your morality for wealth?',
         'health': (8, 12),
         'power': (1, 3),
-        'money': (2000, 5000)
+        'Gold': (2000, 5000)
     }
     ]
 
@@ -95,19 +137,18 @@ def new_random_monster():
         'desc': monster['desc'],
         'health': random.randint(*monster["health"]),
         'power': random.randint(*monster['power']),
-        'money': random.randint(*monster['money'])
+        'Gold': random.randint(*monster['Gold'])
     }
 
 
 #--------------------------------------------------------------------------------------------------------------------------------
 # New functions for assignment 6 below line
 
-def print_welcome(name, width=20):
-    
+def print_welcome():
+    Name = input('What is your name?\n')
 
-    '''pretty straight forward, just prints the welcome message'''
-
-    print(f'{"Hello, " + name + "!":^{width}}')
+    print(f'Hello {Name}!')
+    return(Name)
 
 #This is outdated but I'm keeping it for now just in case I need it
 SHOP_ITEMS = {
@@ -171,7 +212,7 @@ def add_to_inventory(inventory, item, quantity=1):
     if item in inventory:
         inventory[item] += quantity
     else:
-        print(f"Item {item} not recognized.")
+        print("Item {item} not recognized.")
 
 '''
 Used to remove items from the players inventory after they have been used.
@@ -182,7 +223,7 @@ def remove_from_inventory(inventory, item, quantity=1):
     if item in inventory and inventory[item] >= quantity:
         inventory[item] -= quantity
     else:
-        print(f"Not enough {item} in inventory to remove.")
+        print("Not enough {item} in inventory to remove.")
 
 
 
@@ -195,7 +236,7 @@ def display_inventory(inventory):
     for item, data in inventory.items():
         quantity = data['quantity']
         durability = data['durability']
-        print(f"- {item} (x{quantity}, Durability: {durability})")
+        print("- {item} (x{quantity}, Durability: {durability})")
 
 
 
@@ -208,29 +249,29 @@ def fight_manager(playerhealth = 50, playerdmg = 5, inventory = {}):
     monstername = monster['name']
     monsterhealth = monster['health']
     monsterdmg = monster['power']
-    monstergold = monster['money']
+    monstergold = monster['Gold']
     desc = monster['desc']
     
 
-    choice = int(input(f'A wild {monstername} appeared! {desc}. Monster Health: {monsterhealth}, Monster Damage: {monsterdmg}, Gold Reward: {monstergold}. Fight(1), Run(2): '))
+    choice = int(input('A wild {monstername} appeared! {desc}. Monster Health: {monsterhealth}, Monster Damage: {monsterdmg}, Gold Reward: {monstergold}. Fight(1), Run(2): '))
     
     # lets the player pick a weapon
     if inventory:
         print("\nChoose your weapon from the inventory:")
         for idx, item in enumerate(inventory):
             if item in item_stats:  # Make sure the item is real
-                print(f"{idx + 1}. {item} (Durability: {item_stats[item]['durability']})")
+                print("{idx + 1}. {item} (Durability: {item_stats[item]['durability']})")
         weapon_choice = int(input("Select your weapon: ")) - 1
         weapon = list(inventory.keys())[weapon_choice]  
         weapon_info = item_stats.get(weapon, None)  
         
         if weapon_info is None:
-            print(f"Error: {weapon} does not have valid stats in item_stats.")
+            print("Error: {weapon} does not have valid stats in item_stats.")
             return 0  
         
         weapon_dmg = weapon_info['multiplier']
         weapon_durability = weapon_info['durability']
-        print(f'You equipped {weapon} with damage multiplier of {weapon_dmg} and durability of {weapon_durability}.\n')
+        print('You equipped {weapon} with damage multiplier of {weapon_dmg} and durability of {weapon_durability}.\n')
     else:
         weapon_dmg = 1  # this is for if there is no weapon
         weapon_durability = 0
@@ -240,21 +281,23 @@ def fight_manager(playerhealth = 50, playerdmg = 5, inventory = {}):
         # Calculate damage using weapon multiplier
         total_player_dmg = playerdmg * weapon_dmg  # Multiply base player damage by weapon multiplier
         monsterhealth -= total_player_dmg
-        print(f'You dealt {total_player_dmg} damage. Monster health: {monsterhealth}')
+        print('You dealt {total_player_dmg} damage. Monster health: {monsterhealth}')
         
         # Is the monster still alive?
         if monsterhealth > 0:
             playerhealth -= monsterdmg
-            print(f'{monstername} attacks, dealing {monsterdmg} damage. Player health: {playerhealth}')
+            print('{monstername} attacks, dealing {monsterdmg} damage. Player health: {playerhealth}')
         
         # durraiblity - 1
         if weapon_durability > 0:
             weapon_durability -= 1
-            print(f'{weapon} durability: {weapon_durability}')
+            print('{weapon} durability: {weapon_durability}')
             if weapon_durability <= 0:
-                print(f'Your {weapon} broke!')
+                print('Your {weapon} broke!')
+                del inventory[weapon]
                 break
-        
+
+
         # Continue or run away
         if monsterhealth > 0 and playerhealth > 0:
             choice = int(input('fight (1) run away (2): '))
@@ -265,7 +308,7 @@ def fight_manager(playerhealth = 50, playerdmg = 5, inventory = {}):
 
     # End of fight conditions
     if monsterhealth <= 0 and playerhealth > 0:
-        print(f'You won the fight! You got {monstergold} gold!')
+        print('You won the fight! You got {monstergold} gold!')
         return monstergold
     elif playerhealth <= 0:
         print('You died')
@@ -283,7 +326,7 @@ def function_test_if_main():
 
 
     """This tests the functions if they are running in main"""
-    print('This test shows what happens when the player does not have enough money to purchase an item\n')
+    print('This test shows what happens when the player does not have enough Gold to purchase an item\n')
     purchase_item(100, 50, 1)
     print('\n\n')
     print('This is what happens when a player requests more items than they can afford but can still afford some\n')
